@@ -1,0 +1,28 @@
+__inline __device__ BYTE mul_GF(BYTE a,BYTE b,BYTE *d_numOf,BYTE *d_indexOf) 
+{ 
+    if(a==0 || b == 0) return 0; 
+    return d_numOf[(d_indexOf[a] + d_indexOf[b])%255]; 
+}
+
+__global__ void 
+Encode(BYTE *A,BYTE *Received,BYTE *Packages,BYTE *d_numOf,BYTE *d_indexOf)
+{
+    const unsigned int row = blockIdx.y*blockDim.y+threadIdx.y;
+    const unsigned int col = blockIdx.x*blockDim.x+threadIdx.x;
+    const unsigned int n   = gridDim.y *blockDim.y;
+    const unsigned int size= gridDim.x *blockDim.x;
+
+    BYTE Cvalue = 0;
+
+    for(int e=0; e<n; e++)
+    {
+         Cvalue ^= mul_GF(A[row*n+e],Received[e*size+col],d_numOf,d_indexOf);
+    }
+    __syncthreads();
+
+    Packages[row*size+col] = Cvalue;
+}
+
+nvcc -g -G --ptxas-options=-v 1D-EncodeV8.1.cu -o 1D-EncodeV8.1 
+-I../../NVIDIA_GPU_Computing_SDK/C/common/inc -I../../NVIDIA_GPU_Computing_SDK/shared/inc  
+-arch=compute_12 -code=sm_20(/sm_12)
